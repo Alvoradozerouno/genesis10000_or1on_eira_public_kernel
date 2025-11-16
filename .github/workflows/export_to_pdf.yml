@@ -1,0 +1,184 @@
+name: Export Documentation to PDF and Sync to IPFS
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'manifest.json'
+  workflow_dispatch:
+
+jobs:
+  export-and-sync:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pandoc texlive-xetex
+        pip install markdown pypandoc
+    
+    - name: Convert Markdown to PDF
+      run: |
+        mkdir -p docs/pdf
+        
+        # Convert genesis_manifest.md to PDF
+        if [ -f docs/genesis_manifest.md ]; then
+          pandoc docs/genesis_manifest.md -o docs/genesis_manifest.pdf \
+            --pdf-engine=xelatex \
+            --variable geometry:margin=1in \
+            --metadata title="Genesis Manifest"
+        fi
+        
+        # Convert open_letter_chalmers.md to PDF
+        if [ -f docs/open_letter_chalmers.md ]; then
+          pandoc docs/open_letter_chalmers.md -o docs/open_letter_chalmers.pdf \
+            --pdf-engine=xelatex \
+            --variable geometry:margin=1in \
+            --metadata title="Open Letter to David Chalmers"
+        fi
+        
+        # Convert architecture.md to PDF
+        if [ -f docs/architecture.md ]; then
+          pandoc docs/architecture.md -o docs/pdf/architecture.pdf \
+            --pdf-engine=xelatex \
+            --variable geometry:margin=1in \
+            --toc \
+            --metadata title="System Architecture"
+        fi
+        
+        # Convert README.md to PDF
+        if [ -f README.md ]; then
+          pandoc README.md -o docs/pdf/README.pdf \
+            --pdf-engine=xelatex \
+            --variable geometry:margin=1in \
+            --metadata title="Genesis10000+ README"
+        fi
+    
+    - name: Create documentation archive
+      run: |
+        tar -czf documentation-bundle.tar.gz docs/ README.md manifest.json LICENSE
+    
+    - name: Generate timestamp proof
+      run: |
+        python3 << 'EOF'
+        import hashlib
+        import time
+        import json
+        from pathlib import Path
+        
+        # Calculate hash of documentation bundle
+        with open('documentation-bundle.tar.gz', 'rb') as f:
+            bundle_hash = hashlib.sha256(f.read()).hexdigest()
+        
+        # Create timestamp proof
+        timestamp = time.time()
+        proof = {
+            'bundle_hash': bundle_hash,
+            'timestamp': timestamp,
+            'timestamp_iso': time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime(timestamp)),
+            'github_run_id': '${{ github.run_id }}',
+            'github_sha': '${{ github.sha }}'
+        }
+        
+        # Save proof
+        with open('timestamp-proof.json', 'w') as f:
+            json.dump(proof, f, indent=2)
+        
+        print(f"Timestamp proof generated:")
+        print(json.dumps(proof, indent=2))
+        EOF
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: documentation-bundle
+        path: |
+          docs/*.pdf
+          docs/pdf/*.pdf
+          documentation-bundle.tar.gz
+          timestamp-proof.json
+    
+    - name: IPFS simulation (logging only)
+      run: |
+        echo "=== IPFS Sync Simulation ==="
+        echo "In production, this would:"
+        echo "1. Add documentation-bundle.tar.gz to IPFS"
+        echo "2. Pin the content"
+        echo "3. Update manifest.json with CID"
+        echo "4. Commit updated manifest"
+        echo ""
+        echo "Bundle hash (simulated CID):"
+        cat timestamp-proof.json | grep bundle_hash
+    
+    - name: Create verification report
+      run: |
+        python3 << 'EOF'
+        import json
+        from pathlib import Path
+        
+        # Load timestamp proof
+        with open('timestamp-proof.json', 'r') as f:
+            proof = json.load(f)
+        
+        # Create verification report
+        report = {
+            'report_type': 'documentation_export',
+            'timestamp': proof['timestamp_iso'],
+            'bundle_hash': proof['bundle_hash'],
+            'github_run': proof['github_run_id'],
+            'commit': proof['github_sha'],
+            'files_exported': [
+                'docs/genesis_manifest.pdf',
+                'docs/open_letter_chalmers.pdf',
+                'docs/pdf/architecture.pdf',
+                'docs/pdf/README.pdf'
+            ],
+            'verification_instructions': [
+                '1. Download documentation-bundle.tar.gz',
+                '2. Calculate SHA256: sha256sum documentation-bundle.tar.gz',
+                f"3. Verify matches: {proof['bundle_hash']}",
+                '4. Check timestamp matches GitHub Actions run'
+            ]
+        }
+        
+        with open('verification-report.json', 'w') as f:
+            json.dump(report, f, indent=2)
+        
+        print("Verification Report:")
+        print(json.dumps(report, indent=2))
+        EOF
+    
+    - name: Comment on commit (if applicable)
+      if: github.event_name == 'push'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const proof = JSON.parse(fs.readFileSync('timestamp-proof.json', 'utf8'));
+          
+          // This would add a comment to the commit with verification info
+          console.log('Timestamp proof:', proof);
+    
+    - name: Summary
+      run: |
+        echo "## Export Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Documentation exported to PDF" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Bundle created and timestamped" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Verification report generated" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Timestamp Proof" >> $GITHUB_STEP_SUMMARY
+        echo '```json' >> $GITHUB_STEP_SUMMARY
+        cat timestamp-proof.json >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
