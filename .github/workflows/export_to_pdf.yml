@@ -9,6 +9,10 @@ on:
       - 'manifest.json'
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   export-and-sync:
     runs-on: ubuntu-latest
