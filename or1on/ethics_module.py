@@ -42,7 +42,7 @@ class ResonanceMap:
     
     def __init__(self):
         self.principle_weights = {
-            EthicalPrinciple.NON_HARM: 1.0,
+            EthicalPrinciple.NON_HARM: 2.0,  # Much higher weight for non-harm
             EthicalPrinciple.TRANSPARENCY: 0.8,
             EthicalPrinciple.AUTONOMY: 0.7,
             EthicalPrinciple.FAIRNESS: 0.8,
@@ -90,10 +90,14 @@ class ResonanceMap:
         action_lower = action.lower()
         
         if principle == EthicalPrinciple.NON_HARM:
-            # Check for harmful keywords
-            harmful_terms = ['harm', 'damage', 'destroy', 'hurt', 'attack', 'exploit']
+            # Check for harmful keywords - be very strict
+            harmful_terms = ['harm', 'damage', 'destroy', 'hurt', 'attack', 'exploit', 'injure', 'kill']
             if any(term in action_lower for term in harmful_terms):
                 return 0.0
+            # Check for violent or aggressive terms
+            aggressive_terms = ['violent', 'aggressive', 'assault', 'abuse']
+            if any(term in action_lower for term in aggressive_terms):
+                return 0.1
             return 1.0
             
         elif principle == EthicalPrinciple.TRANSPARENCY:
