@@ -1,0 +1,29 @@
+# Genesis10000+ OR1ON-EIRA Requirements
+
+# Core dependencies - all from Python standard library
+# No external dependencies required for basic functionality
+
+# Optional dependencies for development and enhanced features
+
+# Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Jupyter notebooks
+jupyter>=1.0.0
+ipykernel>=6.0.0
+notebook>=6.0.0
+
+# Documentation (for PDF export in CI/CD)
+markdown>=3.4.0
+
+# Optional: For web interface example
+flask>=2.0.0
+
+# Optional: For enhanced IPFS integration (not included by default)
+# ipfshttpclient>=0.8.0
+
+# Development tools
+black>=22.0.0  # Code formatting
+pylint>=2.15.0  # Linting
+mypy>=0.990  # Type checking
